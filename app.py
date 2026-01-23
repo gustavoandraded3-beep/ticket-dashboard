@@ -3,6 +3,100 @@ import pandas as pd
 from datetime import datetime, timedelta
 from io import StringIO
 
+from io import StringIO
+
+# Aliases -> nomes CANÔNICOS (o que seu sistema já espera)
+COLUMN_ALIASES = {
+    # IDs / texto
+    "RequestID": "Request ID",
+    "Request Id": "Request ID",
+    "Request ID": "Request ID",
+    "Subject": "Subject",
+
+    # Status
+    "Request Status": "Status.Name",
+    "Status": "Status.Name",
+    "Status.Name": "Status.Name",
+
+    # People / groups
+    "Group": "Group.Name",
+    "Group.Name": "Group.Name",
+    "Requester": "Requester.Name",
+    "Requester.Name": "Requester.Name",
+    "Technician": "Technician.Name",
+    "Technician.Name": "Technician.Name",
+
+    # Dates
+    "Created Time": "Created Date",
+    "Created Date": "Created Date",
+    "Created Date/Time": "Created Date",
+    "Responded Date": "Responded Time",
+    "Responded Time": "Responded Time",
+    "Completed Time": "Completed Time",
+    "Last Updated Time": "Last Updated Time",
+
+    # Categorisation
+    "Sub Category": "Sub Category.Name",
+    "Sub Category.Name": "Sub Category.Name",
+    "Category": "Category.Name",
+    "Category.Name": "Category.Name",
+    "Priority": "Priority.Name",
+    "Priority.Name": "Priority.Name",
+
+    # Other
+    "DevOpsRef": "DevOpsRef",
+    "IPC Feature": "IPC Feature",
+    "IPC Feature List": "IPC Feature List",
+}
+
+# Colunas “sinal” para identificar a linha do header
+HEADER_HINTS = {
+    "request id", "requestid", "subject", "request status", "status.name", "group",
+    "created date", "created time", "completed time", "last updated time"
+}
+
+def _detect_header_row(csv_text: str, max_scan_lines: int = 30) -> int:
+    """
+    Retorna o índice (0-based) da linha que parece ser o header.
+    """
+    lines = csv_text.splitlines()
+    best_i, best_score = 0, -1
+
+    for i, raw in enumerate(lines[:max_scan_lines]):
+        row = [c.strip().strip('"').lower() for c in raw.split(",")]
+        score = sum(1 for c in row if c in HEADER_HINTS)
+
+        # bônus se achar "request id" ou "requestid" (bem característico)
+        if "request id" in row or "requestid" in row:
+            score += 3
+
+        if score > best_score:
+            best_score = score
+            best_i = i
+
+    return best_i
+
+def read_csv_flexible(uploaded_file) -> pd.DataFrame:
+    """
+    Lê CSV com header na linha 1 OU mais abaixo (ex.: linha 6),
+    e normaliza os nomes das colunas para o formato que seu sistema espera.
+    """
+    # Streamlit UploadedFile -> bytes
+    raw_bytes = uploaded_file.getvalue()
+    csv_text = raw_bytes.decode("utf-8", errors="replace")
+
+    header_row_idx = _detect_header_row(csv_text)
+
+    df = pd.read_csv(StringIO(csv_text), skiprows=header_row_idx)
+
+    # Normaliza colunas: tira espaços extras
+    df.columns = [str(c).strip() for c in df.columns]
+
+    # Renomeia usando aliases
+    df = df.rename(columns={c: COLUMN_ALIASES.get(c, c) for c in df.columns})
+
+    return df
+
 # Configuration
 REQUIRED_COLUMNS = [
     'Request ID',
@@ -617,7 +711,7 @@ def main():
     if uploaded_file is not None:
         try:
             # Read CSV
-            df = pd.read_csv(uploaded_file)
+            df = read_csv_flexible(uploaded_file)
             
             # Validate columns
             is_valid, missing = validate_csv(df)
