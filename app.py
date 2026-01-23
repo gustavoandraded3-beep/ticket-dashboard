@@ -951,9 +951,9 @@ def main():
                 snapshot_date = df["Last Updated Time Parsed"].dropna().max()
                 snapshot_str = format_date_display(snapshot_date) if pd.notna(snapshot_date) else "N/A"
 
-                def make_metrics_df(scope_df):
+                def make_metrics_df(scope_df, closed_scope_df=None):
                     status_series = scope_df["Status.Name"].astype(str).str.strip()
-                    status_clean = scope_df["Status Clean"].astype(str).str.strip().str.lower()
+
 
                     created_count = len(scope_df)
 
@@ -961,7 +961,11 @@ def main():
                     pending_action_count = len(scope_df[status_series.isin(ON_HOLD_STATUSES)])
 
                     pending_user_update_count = len(scope_df[status_series.eq("Pending User Update")])
-                    closed_count = len(scope_df[status_clean.isin(CLOSED_STATUSES)])
+                     # ✅ IMPORTANT: Closed/Resolved should come from CLOSED scope (ClosedDT in range)
+                    if closed_scope_df is None:
+                       closed_count = int(scope_df["Is Closed"].sum())  # fallback
+                    else:
+                        closed_count = len(closed_scope_df)
 
                     return pd.DataFrame([
                         {"Metric": "🆕 Tickets created", "Count": created_count},
@@ -977,11 +981,25 @@ def main():
                     (df["Created Date Parsed"] >= date_a) &
                     (df["Created Date Parsed"] <= date_b)
                 ].copy()
-                period_df = make_metrics_df(period_scope)
+                # ✅ Closed/Resolved in PERIOD (by ClosedDT) - same as Date Comparison
+                period_closed_scope = df[
+                    (df["Is Closed"]) &
+                    (df["ClosedDT"] >= date_a) &
+                    (df["ClosedDT"] <= date_b)
+                ].copy()
+                
+                period_df = make_metrics_df(period_scope, closed_scope_df=period_closed_scope)
 
                 month_scope = df[
                     (df["Created Date Parsed"] >= month_start) &
                     (df["Created Date Parsed"] <= today)
+                ].copy()
+                
+                # ✅ Closed/Resolved in MONTH (by ClosedDT)
+                month_closed_scope = df[
+                    (df["Is Closed"]) &
+                    (df["ClosedDT"] >= month_start) &
+                    (df["ClosedDT"] <= today)
                 ].copy()
                 month_df = make_metrics_df(month_scope)
 
@@ -997,12 +1015,12 @@ def main():
                     + df_to_plain("📌 Overview (All Tickets)", overview_df)
                     + "\n\n"
                     + df_to_plain(
-                        f"📆 Selected Period (Created {format_date_display(date_a)} → {format_date_display(date_b)})",
+                        f"📆 Selected Period ( {format_date_display(date_a)} → {format_date_display(date_b)})",
                         period_df
                     )
                     + "\n\n"
                     + df_to_plain(
-                        f"🗓️ Current Month (Created {format_date_display(month_start)} → {format_date_display(today)})",
+                        f"🗓️ Current Month ( {format_date_display(month_start)} → {format_date_display(today)})",
                         month_df
                     )
                 )
@@ -1020,8 +1038,8 @@ def main():
               <div style="margin:0 0 14px 0;"><b>CSV Snapshot Date:</b> {snapshot_str}</div>
 
               {df_to_html("📌 Overview (All Tickets)", overview_df)}
-              {df_to_html(f"📆 Selected Period (Created {format_date_display(date_a)} → {format_date_display(date_b)})", period_df)}
-              {df_to_html(f"🗓️ Current Month (Created {format_date_display(month_start)} → {format_date_display(today)})", month_df)}
+              {df_to_html(f"📆 Selected Period ( {format_date_display(date_a)} → {format_date_display(date_b)})", period_df)}
+              {df_to_html(f"🗓️ Current Month ( {format_date_display(month_start)} → {format_date_display(today)})", month_df)}
             </div>
             """
 
@@ -1044,11 +1062,11 @@ def main():
             st.subheader("📌 Overview (All Tickets)")
             st.dataframe(summary["overview_df"], use_container_width=True, hide_index=True)
 
-            st.subheader(f"📆 Selected Period (Created {format_date_display(date_a)} → {format_date_display(date_b)})")
+            st.subheader(f"📆 Selected Period ( {format_date_display(date_a)} → {format_date_display(date_b)})")
             st.dataframe(summary["period_df"], use_container_width=True, hide_index=True)
 
             st.subheader(
-                f"🗓️ Current Month (Created {format_date_display(summary['month_start'])} → {format_date_display(summary['today'])})"
+                f"🗓️ Current Month ( {format_date_display(summary['month_start'])} → {format_date_display(summary['today'])})"
             )
             st.dataframe(summary["month_df"], use_container_width=True, hide_index=True)
 
