@@ -25,7 +25,7 @@ REQUIRED_COLUMNS = [
 
 # MANDATORY: Normalized closed statuses (lowercase)
 CLOSED_STATUSES = {'closed', 'resolved'}
-
+ON_HOLD_STATUSES = {"Defered Enhancement", "In Progress", "Tll BAU Ticket", "BA Triage Required", "Devops Assigned", "BAU Config Change", "On Hold"}
 
 def validate_csv(df):
     """
@@ -309,41 +309,73 @@ def generate_email_summary(df, date_a, date_b):
     now_str = now.strftime('%d/%m/%Y at %I:%M %p')
     
     # Build summary text
+def generate_email_summary(df, date_a, date_b):
+    now = datetime.now()
+    now_str = now.strftime('%d/%m/%Y at %H:%M')
+
+    # ---------- helper to build tables ----------
+    def build_table(title, scope_df):
+        status_series = scope_df["Status.Name"].astype(str).str.strip()
+        status_clean = scope_df["Status Clean"].astype(str).str.strip().str.lower()
+
+        created_count = len(scope_df)
+
+        # SAME definition used twice (as requested)
+        on_hold_count = len(scope_df[status_series.isin(ON_HOLD_STATUSES)])
+        pending_action_count = len(scope_df[status_series.isin(ON_HOLD_STATUSES)])
+
+        pending_user_update_count = len(scope_df[status_series.eq("Pending User Update")])
+
+        closed_count = len(scope_df[status_clean.isin(CLOSED_STATUSES)])
+
+        table = f"""### {title}
+
+| Metric | Count |
+|---|---:|
+| Tickets created | {created_count} |
+| Tickets On Hold | {on_hold_count} |
+| Tickets Pending Action (TLL/Business) | {pending_action_count} |
+| Tickets Pending User Update | {pending_user_update_count} |
+| Tickets Closed/Resolved | {closed_count} |
+"""
+        return table
+
+    # ---------- scopes ----------
+    # All tickets
+    all_scope = df.copy()
+
+    # Selected period (created in Date A–Date B)
+    period_scope = df[
+        (df["Created Date Parsed"] >= date_a) &
+        (df["Created Date Parsed"] <= date_b)
+    ].copy()
+
+    # Current month (created this month)
+    today = datetime.now().date()
+    month_start = today.replace(day=1)
+    month_scope = df[
+        (df["Created Date Parsed"] >= month_start) &
+        (df["Created Date Parsed"] <= today)
+    ].copy()
+
+    # ---------- build summary ----------
     summary = f"""TICKET SYSTEM SUMMARY
 Generated on: {now_str}
 
-OVERVIEW
-• Total Open Tickets: {total_open}
-
-DATE COMPARISON
-
-Specific Dates:
-Date A ({date_a_str}):
-• Tickets Opened: {opened_a}
-• Tickets Closed/Resolved: {closed_a}
-
-Date B ({date_b_str}):
-• Tickets Opened: {opened_b}
-• Tickets Closed/Resolved: {closed_b}
-
-Rolling Periods:
-Last 24 Hours:
-• Tickets Opened: {last_24h_opened}
-• Tickets Closed/Resolved: {last_24h_closed}
-
-Last 7 Days:
-• Tickets Opened: {last_7d_opened}
-• Tickets Closed/Resolved: {last_7d_closed}
-
-Last Month (30 days):
-• Tickets Opened: {last_30d_opened}
-• Tickets Closed/Resolved: {last_30d_closed}
-
-OPEN TICKETS BREAKDOWN
-
-By Group:
 """
-    
+
+    summary += build_table("Overview – All Tickets", all_scope)
+    summary += build_table(
+        f"Selected Period – Created {format_date_display(date_a)} to {format_date_display(date_b)}",
+        period_scope
+    )
+    summary += build_table(
+        f"Current Month – Created {format_date_display(month_start)} to {format_date_display(today)}",
+        month_scope
+    )
+
+    return summary
+
     # Add group breakdown
     if len(by_group) > 0:
         for _, row in by_group.iterrows():
@@ -656,76 +688,87 @@ def main():
             st.header("📈 Key Metrics")
             
             # Basic metrics
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5  = st.columns(5)
             
             open_tickets = get_open_tickets(df)
             closed_tickets = df[df['Is Closed']]
-            
+            status_series = df["Status.Name"].astype(str).str.strip()
+            on_hold = df[status_series.isin(ON_HOLD_STATUSES)]
+            in_progress = df[status_series.eq("In Progress")]
+            pending_user_update = df[status_series.eq("Pending User Update")]
             with col1:
                 st.metric("Total Open Tickets", len(open_tickets))
             
             with col2:
-                opened_a = len(get_tickets_opened_on_date(df, date_a))
-                st.metric(f"Opened on {format_date_display(date_a)}", opened_a)
+                st.metric("Tickets On Hold (Pending Business/TLL Action)", len(on_hold))
             
             with col3:
-                closed_a = len(get_tickets_closed_on_date(df, date_a))
-                st.metric(f"Closed on {format_date_display(date_a)}", closed_a)
+                st.metric("Tickets In Progress", len(in_progress))
             
             with col4:
-                st.metric("Total Closed Tickets", len(closed_tickets))
+                st.metric("Tickets Pending User Update", len(pending_user_update))
             
+            with col5:
+                st.metric("Total Closed Tickets", len(closed_tickets))
             # Current Year Metrics
             st.subheader(f"📅 Current Year ({datetime.now().year}) Metrics")
             
             year_metrics = get_current_year_metrics(df)
             
-            col1, col2, col3, col4 = st.columns(4)
+            col1, col2, col3, col4, col5 = st.columns(5)
             
+            current_year = year_metrics["year"]
+
+            # tickets created in the current year (mesma base do get_current_year_metrics)
+            tickets_year = df[df["Created Date Parsed"].apply(
+               lambda x: x.year == current_year if pd.notna(x) else False
+            )]
+
+            status_year = tickets_year["Status.Name"].astype(str).str.strip()
+
+            year_open = tickets_year[~tickets_year["Is Closed"]]
+            year_closed = tickets_year[tickets_year["Is Closed"]]
+
+            year_on_hold = tickets_year[status_year.isin(ON_HOLD_STATUSES)]
+            year_pending_user = tickets_year[status_year.eq("Pending User Update")]
+            year_in_progress = tickets_year[status_year.eq("In Progress")]
+
             with col1:
-                st.metric(
-                    f"Created in {year_metrics['year']}", 
-                    year_metrics['created_total']
-                )
-            
+                st.metric("Open Tickets (Year)", len(year_open))
+
             with col2:
-                st.metric(
-                    f"Created {year_metrics['year']} - Currently Open", 
-                    year_metrics['created_open']
-                )
-            
+                st.metric("Pending Business / TLL Action", len(year_on_hold))
+
             with col3:
-                st.metric(
-                    f"Created {year_metrics['year']} - Currently Closed", 
-                    year_metrics['created_closed']
-                )
-            
+                st.metric("Pending User Update", len(year_pending_user))
+
             with col4:
-                st.metric(
-                    f"Closed in {year_metrics['year']}", 
-                    year_metrics['closed_total']
-                )
+                st.metric("In Progress", len(year_in_progress))
+
+            with col5:
+                st.metric("Closed Tickets (Year)", len(year_closed))
+
             
             # ========== DATE COMPARISON ==========
             st.header("📅 Date Comparison")
             
-            # Specific dates
-            st.subheader("Specific Dates")
-            col1, col2 = st.columns(2)
+            # # Specific dates
+            # st.subheader("Specific Dates")
+            # col1, col2 = st.columns(2)
             
-            with col1:
-                st.write(f"**Date A: {format_date_display(date_a)}**")
-                opened_a = len(get_tickets_opened_on_date(df, date_a))
-                closed_a = len(get_tickets_closed_on_date(df, date_a))
-                st.write(f"Opened: {opened_a} tickets")
-                st.write(f"Closed/Resolved: {closed_a} tickets")
+            # with col1:
+                # st.write(f"**Date A: {format_date_display(date_a)}**")
+                # opened_a = len(get_tickets_opened_on_date(df, date_a))
+                # closed_a = len(get_tickets_closed_on_date(df, date_a))
+                # st.write(f"Opened: {opened_a} tickets")
+                # st.write(f"Closed/Resolved: {closed_a} tickets")
             
-            with col2:
-                st.write(f"**Date B: {format_date_display(date_b)}**")
-                opened_b = len(get_tickets_opened_on_date(df, date_b))
-                closed_b = len(get_tickets_closed_on_date(df, date_b))
-                st.write(f"Opened: {opened_b} tickets")
-                st.write(f"Closed/Resolved: {closed_b} tickets")
+            # with col2:
+                # st.write(f"**Date B: {format_date_display(date_b)}**")
+                # opened_b = len(get_tickets_opened_on_date(df, date_b))
+                # closed_b = len(get_tickets_closed_on_date(df, date_b))
+                # st.write(f"Opened: {opened_b} tickets")
+                # st.write(f"Closed/Resolved: {closed_b} tickets")
             
             # Period metrics (Date A to Date B inclusive)
             st.subheader(f"Period Metrics: {format_date_display(date_a)} to {format_date_display(date_b)} (Inclusive)")
@@ -856,13 +899,14 @@ def main():
         
             st.write(f"**Total tickets in scope: {len(breakdown_tickets)}**")
         
-            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
             "By Group",
             "By Sub-Category",
             "By IPC Feature",
             "By Technician",
             "By Requester",
             "By Priority",
+            "By Status",
             "Tickets on DevOps",
             "Abandoned Tickets"
             ])
@@ -884,32 +928,139 @@ def main():
         
             with tab6:
                 display_breakdown_with_drilldown(breakdown_tickets, 'Priority.Name', 'Priority')
-        
+            
             with tab7:
-                display_devops_breakdown(breakdown_tickets)
+                display_breakdown_with_drilldown(breakdown_tickets, 'Status.Name', 'Status')
+
         
             with tab8:
-                display_abandoned_tickets(breakdown_tickets)
+                display_devops_breakdown(breakdown_tickets)
         
+            with tab9:
+                abandoned_scope = breakdown_tickets[
+                ~breakdown_tickets["Status Clean"].isin({"closed", "resolved", "canceled"})
+                ]
+                display_abandoned_tickets(abandoned_scope)
+            
+          # ========== EMAIL Main ==========
+            def generate_email_summary(df, date_a, date_b):
+                today = datetime.now().date()
+                month_start = today.replace(day=1)
+
+                # Snapshot date from CSV (best available proxy)
+                snapshot_date = df["Last Updated Time Parsed"].dropna().max()
+                snapshot_str = format_date_display(snapshot_date) if pd.notna(snapshot_date) else "N/A"
+
+                def make_metrics_df(scope_df):
+                    status_series = scope_df["Status.Name"].astype(str).str.strip()
+                    status_clean = scope_df["Status Clean"].astype(str).str.strip().str.lower()
+
+                    created_count = len(scope_df)
+
+                    on_hold_count = len(scope_df[status_series.isin(ON_HOLD_STATUSES)])
+                    pending_action_count = len(scope_df[status_series.isin(ON_HOLD_STATUSES)])
+
+                    pending_user_update_count = len(scope_df[status_series.eq("Pending User Update")])
+                    closed_count = len(scope_df[status_clean.isin(CLOSED_STATUSES)])
+
+                    return pd.DataFrame([
+                        {"Metric": "🆕 Tickets created", "Count": created_count},
+                        {"Metric": "⏸️ Tickets On Hold", "Count": on_hold_count},
+                        {"Metric": "🕒 Pending Action (TLL/Business)", "Count": pending_action_count},
+                        {"Metric": "🙋 Pending User Update", "Count": pending_user_update_count},
+                        {"Metric": "✅ Closed/Resolved", "Count": closed_count},
+                    ])
+
+                overview_df = make_metrics_df(df)
+
+                period_scope = df[
+                    (df["Created Date Parsed"] >= date_a) &
+                    (df["Created Date Parsed"] <= date_b)
+                ].copy()
+                period_df = make_metrics_df(period_scope)
+
+                month_scope = df[
+                    (df["Created Date Parsed"] >= month_start) &
+                    (df["Created Date Parsed"] <= today)
+                ].copy()
+                month_df = make_metrics_df(month_scope)
+
+                def df_to_plain(title, metrics_df):
+                    lines = [f"{title}"]
+                    for _, row in metrics_df.iterrows():
+                        lines.append(f"- {row['Metric']}: {row['Count']}")
+                    return "\n".join(lines)
+
+                plain_text = (
+                    "TICKETS SUMMARY\n"
+                    f"CSV Snapshot Date: {snapshot_str}\n\n"
+                    + df_to_plain("📌 Overview (All Tickets)", overview_df)
+                    + "\n\n"
+                    + df_to_plain(
+                        f"📆 Selected Period (Created {format_date_display(date_a)} → {format_date_display(date_b)})",
+                        period_df
+                    )
+                    + "\n\n"
+                    + df_to_plain(
+                        f"🗓️ Current Month (Created {format_date_display(month_start)} → {format_date_display(today)})",
+                        month_df
+                    )
+                )
+
+                def df_to_html(title, metrics_df):
+                    html_table = metrics_df.to_html(index=False, border=0)
+                    return f"""
+            <h3 style="margin:14px 0 8px 0;">{title}</h3>
+            {html_table}
+            """
+
+                html = f"""
+            <div style="font-family:Segoe UI, Arial, sans-serif; font-size:13px; color:#222;">
+              <h2 style="margin:0 0 6px 0;">Tickets Summary</h2>
+              <div style="margin:0 0 14px 0;"><b>CSV Snapshot Date:</b> {snapshot_str}</div>
+
+              {df_to_html("📌 Overview (All Tickets)", overview_df)}
+              {df_to_html(f"📆 Selected Period (Created {format_date_display(date_a)} → {format_date_display(date_b)})", period_df)}
+              {df_to_html(f"🗓️ Current Month (Created {format_date_display(month_start)} → {format_date_display(today)})", month_df)}
+            </div>
+            """
+
+                return {
+                    "snapshot_str": snapshot_str,
+                    "overview_df": overview_df,
+                    "period_df": period_df,
+                    "month_df": month_df,
+                    "month_start": month_start,
+                    "today": today,
+                    "plain_text": plain_text,
+                    "html": html.strip()
+                }
+
         # ========== EMAIL SUMMARY ==========
             st.header("📧 Email-Ready Summary")
-        
-            summary_text = generate_email_summary(df, date_a, date_b)
-        
-            st.text_area(
-            "Copy this summary to your email:",
-            summary_text,
-            height=500
-        )
-        
-        # Download button
+
+            summary = generate_email_summary(df, date_a, date_b)
+
+            st.subheader("📌 Overview (All Tickets)")
+            st.dataframe(summary["overview_df"], use_container_width=True, hide_index=True)
+
+            st.subheader(f"📆 Selected Period (Created {format_date_display(date_a)} → {format_date_display(date_b)})")
+            st.dataframe(summary["period_df"], use_container_width=True, hide_index=True)
+
+            st.subheader(
+                f"🗓️ Current Month (Created {format_date_display(summary['month_start'])} → {format_date_display(summary['today'])})"
+            )
+            st.dataframe(summary["month_df"], use_container_width=True, hide_index=True)
+
+            st.text_area("Copy this into your email:", summary["plain_text"], height=260)
+
             st.download_button(
-            label="💾 Download Summary as TXT",
-            data=summary_text,
-            file_name=f"ticket_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
-            mime="text/plain"
-        )
-        
+                label="💾 Download Summary as TXT",
+                data=summary["plain_text"],
+                file_name=f"ticket_summary_{datetime.now().strftime('%Y%m%d_%H%M%S')}.txt",
+                mime="text/plain"
+            )
+
         except Exception as e:
                st.error(f"❌ Error processing file: {str(e)}")
                st.exception(e)
