@@ -565,7 +565,12 @@ def display_devops_breakdown(tickets_df):
     only_real_devops = st.checkbox("Only show tickets with DevOpsRef", value=True)
     
     if only_real_devops:
-        filtered_tickets = tickets_df[tickets_df['DevOpsRef'] != 'Unassigned']
+        filtered_tickets = tickets_df[
+        tickets_df["DevOpsRef"].notna() &
+        ~tickets_df["DevOpsRef"].astype(str).str.strip().isin([
+            "", "Unassigned", "Not Assigned", "nan"
+        ])
+    ]
     else:
         filtered_tickets = tickets_df
     
