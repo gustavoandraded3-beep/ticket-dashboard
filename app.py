@@ -120,7 +120,7 @@ REQUIRED_COLUMNS = [
 # MANDATORY: Normalized closed statuses (lowercase)
 CLOSED_STATUSES = {'closed', 'resolved'}
 ON_HOLD_STATUSES = {"Defered Enhancement", "Tll BAU Ticket", "BA Triage Required", "Devops Assigned", "BAU Config Change", "On Hold"}
-CANCELLED_STATUSES = {"cancelled"}
+CANCELLED_STATUSES = {"cancelled", "canceled"}
 
 def validate_csv(df):
     """
