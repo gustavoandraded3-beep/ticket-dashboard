@@ -186,6 +186,7 @@ def prepare_dataframe(df):
     
     # MANDATORY: Normalize status to lowercase for comparison
     df['Status Clean'] = df['Status.Name'].astype(str).str.strip().str.lower()
+    df["Is Cancelled"] = df["Status Clean"].isin(CANCELLED_STATUSES)
     
     # Parse date columns (convert to date only, no time)
     df['Created Date Parsed'] = parse_date_column(df['Created Date'])
@@ -220,7 +221,7 @@ def get_open_tickets(df):
     """
     Get all open tickets (status is NOT in closed set).
     """
-    return df[(~df["Is Closed"]) & (df["Status Clean"] != "cancelled")].copy()
+    return df[(~df["Is Closed"]) & (~df["Is Cancelled"])].copy()
 
 
 def get_tickets_opened_on_date(df, target_date):
@@ -1038,7 +1039,7 @@ def main():
         
             with tab9:
                 abandoned_scope = breakdown_tickets[
-                ~breakdown_tickets["Status Clean"].isin({"closed", "resolved", "canceled"})
+                ~breakdown_tickets["Status Clean"].isin(CLOSED_STATUSES.union(CANCELLED_STATUSES))
                 ]
                 display_abandoned_tickets(abandoned_scope)
             
