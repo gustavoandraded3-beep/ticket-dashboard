@@ -119,7 +119,8 @@ REQUIRED_COLUMNS = [
 
 # MANDATORY: Normalized closed statuses (lowercase)
 CLOSED_STATUSES = {'closed', 'resolved'}
-ON_HOLD_STATUSES = {"Defered Enhancement", "In Progress", "Tll BAU Ticket", "BA Triage Required", "Devops Assigned", "BAU Config Change", "On Hold"}
+ON_HOLD_STATUSES = {"Defered Enhancement", "Tll BAU Ticket", "BA Triage Required", "Devops Assigned", "BAU Config Change", "On Hold"}
+CANCELLED_STATUSES = {"cancelled"}
 
 def validate_csv(df):
     """
@@ -219,7 +220,7 @@ def get_open_tickets(df):
     """
     Get all open tickets (status is NOT in closed set).
     """
-    return df[~df['Is Closed']].copy()
+    return df[(~df["Is Closed"]) & (df["Status Clean"] != "cancelled")].copy()
 
 
 def get_tickets_opened_on_date(df, target_date):
