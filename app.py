@@ -692,6 +692,96 @@ def display_abandoned_tickets(tickets_df):
             
             st.dataframe(display_df, use_container_width=True, hide_index=True)
 
+def display_age_tickets(tickets_df):
+    """
+    Display ticket age breakdown based on days since creation.
+    Categories:
+    - Less than 3 Days
+    - Less than 5 Days
+    - Less than 14 Days
+    - Less than 30 Days
+    - Less than 60 Days
+    - More than 60 Days
+    """
+    now = datetime.now().date()
+
+    age_data = tickets_df.copy()
+    age_data["Ticket Age (Days)"] = age_data["Created Date Parsed"].apply(
+        lambda x: (now - x).days if pd.notna(x) else None
+    )
+
+    age_data = age_data[age_data["Ticket Age (Days)"].notna()]
+
+    less_than_3 = age_data[age_data["Ticket Age (Days)"] < 3]
+    less_than_5 = age_data[age_data["Ticket Age (Days)"] < 5]
+    less_than_14 = age_data[age_data["Ticket Age (Days)"] < 14]
+    less_than_30 = age_data[age_data["Ticket Age (Days)"] < 30]
+    less_than_60 = age_data[age_data["Ticket Age (Days)"] < 60]
+    more_than_60 = age_data[age_data["Ticket Age (Days)"] > 60]
+
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.metric("Less than 3 Days", len(less_than_3))
+    with col2:
+        st.metric("Less than 5 Days", len(less_than_5))
+    with col3:
+        st.metric("Less than 14 Days", len(less_than_14))
+
+    col4, col5, col6 = st.columns(3)
+    with col4:
+        st.metric("Less than 30 Days", len(less_than_30))
+    with col5:
+        st.metric("Less than 60 Days", len(less_than_60))
+    with col6:
+        st.metric("More than 60 Days", len(more_than_60))
+
+    st.markdown("---")
+
+    categories = [
+        ("Less than 3 Days", less_than_3),
+        ("Less than 5 Days", less_than_5),
+        ("Less than 14 Days", less_than_14),
+        ("Less than 30 Days", less_than_30),
+        ("Less than 60 Days", less_than_60),
+        ("More than 60 Days", more_than_60),
+    ]
+
+    for category_name, category_tickets in categories:
+        st.subheader(f"🗂️ {category_name}")
+
+        if len(category_tickets) == 0:
+            st.info(f"No tickets in this category")
+            continue
+
+        st.write(f"**Total tickets: {len(category_tickets)}**")
+
+        category_tickets_sorted = category_tickets.sort_values("Ticket Age (Days)", ascending=False)
+
+        with st.expander(f"➕ View all {len(category_tickets_sorted)} tickets", expanded=False):
+            display_df = category_tickets_sorted[[
+                "Request ID", "Subject", "Status.Name", "Technician.Name",
+                "Ticket Age (Days)", "Created Date Parsed", "Last Updated Time Parsed"
+            ]].copy()
+
+            display_df["Created Date"] = display_df["Created Date Parsed"].apply(format_date_display)
+            display_df["Last Updated"] = display_df["Last Updated Time Parsed"].apply(format_date_display)
+
+            display_df = display_df[[
+                "Request ID", "Subject", "Status.Name", "Technician.Name",
+                "Ticket Age (Days)", "Created Date", "Last Updated"
+            ]]
+
+            display_df = display_df.rename(columns={
+                "Request ID": "Ticket Number",
+                "Subject": "Subject",
+                "Status.Name": "Status",
+                "Technician.Name": "Technician",
+                "Ticket Age (Days)": "Age (Days)",
+                "Created Date": "Created Date",
+                "Last Updated": "Last Updated"
+            })
+
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
 
 def main():
     st.set_page_config(
@@ -700,7 +790,7 @@ def main():
         layout="wide"
     )
     
-    st.title("📊 Ticket Analysis Dashboard")
+    st.title("📊 Ticket Analysis Dashboard by Gustavo Andrade")
     st.markdown("Upload your ticket system CSV export to analyze metrics and generate email summaries.")
     
     # File upload
@@ -708,7 +798,7 @@ def main():
     uploaded_file = st.sidebar.file_uploader(
         "Choose a CSV file",
         type=['csv'],
-        help="Upload the CSV export from your ticket system"
+        help="Upload the CSV export from ME "
     )
     
     # Optional: Show charts checkbox
@@ -1000,7 +1090,7 @@ def main():
         
             st.write(f"**Total tickets in scope: {len(breakdown_tickets)}**")
         
-            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
             "By Group",
             "By Sub-Category",
             "By IPC Feature",
@@ -1009,7 +1099,8 @@ def main():
             "By Priority",
             "By Status",
             "Tickets on DevOps",
-            "Abandoned Tickets"
+            "Abandoned Tickets",
+            "Age Tickets"
             ])
         
             with tab1:
@@ -1042,6 +1133,12 @@ def main():
                 ~breakdown_tickets["Status Clean"].isin(CLOSED_STATUSES.union(CANCELLED_STATUSES))
                 ]
                 display_abandoned_tickets(abandoned_scope)
+                
+            with tab10:
+                age_scope = breakdown_tickets[
+                ~breakdown_tickets["Status Clean"].isin(CLOSED_STATUSES.union(CANCELLED_STATUSES))
+                ]
+                display_age_tickets(age_scope)
             
           # ========== EMAIL Main ==========
             def generate_email_summary(df, date_a, date_b):
