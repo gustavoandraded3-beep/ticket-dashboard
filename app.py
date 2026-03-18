@@ -713,11 +713,30 @@ def display_age_tickets(tickets_df):
     age_data = age_data[age_data["Ticket Age (Days)"].notna()]
 
     less_than_3 = age_data[age_data["Ticket Age (Days)"] < 3]
-    less_than_5 = age_data[age_data["Ticket Age (Days)"] < 5]
-    less_than_14 = age_data[age_data["Ticket Age (Days)"] < 14]
-    less_than_30 = age_data[age_data["Ticket Age (Days)"] < 30]
-    less_than_60 = age_data[age_data["Ticket Age (Days)"] < 60]
-    more_than_60 = age_data[age_data["Ticket Age (Days)"] > 60]
+
+    less_than_5 = age_data[
+        (age_data["Ticket Age (Days)"] >= 3) &
+        (age_data["Ticket Age (Days)"] < 5)
+    ]
+
+    less_than_14 = age_data[
+        (age_data["Ticket Age (Days)"] >= 5) &
+        (age_data["Ticket Age (Days)"] < 14)
+    ]
+
+    less_than_30 = age_data[
+        (age_data["Ticket Age (Days)"] >= 14) &
+        (age_data["Ticket Age (Days)"] < 30)
+    ]
+
+    less_than_60 = age_data[
+        (age_data["Ticket Age (Days)"] >= 30) &
+        (age_data["Ticket Age (Days)"] < 60)
+    ]
+
+    more_than_60 = age_data[
+        age_data["Ticket Age (Days)"] >= 60
+    ]
 
     col1, col2, col3 = st.columns(3)
     with col1:
