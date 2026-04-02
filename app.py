@@ -712,58 +712,48 @@ def display_age_tickets(tickets_df):
 
     age_data = age_data[age_data["Ticket Age (Days)"].notna()]
 
-    less_than_3 = age_data[age_data["Ticket Age (Days)"] < 3]
+    total = len(age_data)
 
-    less_than_5 = age_data[
-        (age_data["Ticket Age (Days)"] >= 3) &
-        (age_data["Ticket Age (Days)"] < 5)
+    bucket_0_30 = age_data[age_data["Ticket Age (Days)"] <= 30]
+
+    bucket_31_60 = age_data[
+        (age_data["Ticket Age (Days)"] >= 31) &
+        (age_data["Ticket Age (Days)"] <= 60)
     ]
 
-    less_than_14 = age_data[
-        (age_data["Ticket Age (Days)"] >= 5) &
-        (age_data["Ticket Age (Days)"] < 14)
+    bucket_61_90 = age_data[
+        (age_data["Ticket Age (Days)"] >= 61) &
+        (age_data["Ticket Age (Days)"] <= 90)
     ]
 
-    less_than_30 = age_data[
-        (age_data["Ticket Age (Days)"] >= 14) &
-        (age_data["Ticket Age (Days)"] < 30)
+    bucket_90_plus = age_data[
+        age_data["Ticket Age (Days)"] > 90
     ]
 
-    less_than_60 = age_data[
-        (age_data["Ticket Age (Days)"] >= 30) &
-        (age_data["Ticket Age (Days)"] < 60)
-    ]
+    def fmt(count):
+        if total == 0:
+            return "0 (0%)"
+        pct = round((count / total) * 100)
+        return f"{count} ({pct}%)"
 
-    more_than_60 = age_data[
-        age_data["Ticket Age (Days)"] >= 60
-    ]
+    col1, col2 = st.columns(2)
 
-    col1, col2, col3 = st.columns(3)
     with col1:
-        st.metric("Less than 3 Days", len(less_than_3))
+        st.metric("0–30 Days", fmt(len(bucket_0_30)))
+        st.metric("31–60 Days", fmt(len(bucket_31_60)))
+
     with col2:
-        st.metric("Less than 5 Days", len(less_than_5))
-    with col3:
-        st.metric("Less than 14 Days", len(less_than_14))
+        st.metric("61–90 Days", fmt(len(bucket_61_90)))
+        st.metric("90+ Days", fmt(len(bucket_90_plus)))
 
-    col4, col5, col6 = st.columns(3)
-    with col4:
-        st.metric("Less than 30 Days", len(less_than_30))
-    with col5:
-        st.metric("Less than 60 Days", len(less_than_60))
-    with col6:
-        st.metric("More than 60 Days", len(more_than_60))
-
-    st.markdown("---")
+        st.markdown("---")
 
     categories = [
-        ("Less than 3 Days", less_than_3),
-        ("Less than 5 Days", less_than_5),
-        ("Less than 14 Days", less_than_14),
-        ("Less than 30 Days", less_than_30),
-        ("Less than 60 Days", less_than_60),
-        ("More than 60 Days", more_than_60),
-    ]
+    ("0–30 Days", bucket_0_30),
+    ("31–60 Days", bucket_31_60),
+    ("61–90 Days", bucket_61_90),
+    ("90+ Days", bucket_90_plus),
+]
 
     for category_name, category_tickets in categories:
         st.subheader(f"🗂️ {category_name}")
