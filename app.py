@@ -528,9 +528,7 @@ def main():
         help=f"Upload the CSV export from your {system_type} ticket system"
     )
     
-    # Display options
-    st.sidebar.header("2️⃣ Display Options")
-    show_charts = st.sidebar.checkbox("Show charts", value=True)
+
     
     if uploaded_file is not None:
         try:
@@ -718,64 +716,7 @@ def main():
                 st.write(f"Opened: {last_30d_opened}")
                 st.write(f"Closed/Resolved: {last_30d_closed}")
             
-            # ========== CHARTS (OPTIONAL) ==========
-            if show_charts:
-                st.header("📊 Charts")
-                
-                chart_tickets = get_tickets_in_period(df, date_a, date_b, scope_type)
-                
-                st.subheader(f"Ticket Distribution (Top 10) - {scope_option}")
-                
-                tab1, tab2, tab3, tab4 = st.tabs([
-                    "By Group",
-                    "By Technician",
-                    "By Sub-Category",
-                    "By Status"
-                ])
-                
-                with tab1:
-                    by_group = count_by_column(chart_tickets, 'Group.Name').head(10)
-                    if len(by_group) > 0:
-                        chart_df = by_group.set_index('Group.Name')
-                        st.bar_chart(chart_df['Count'])
-                    else:
-                        st.info("No tickets in selected scope")
-                
-                with tab2:
-                    by_tech = count_by_column(chart_tickets, 'Technician.Name').head(10)
-                    if len(by_tech) > 0:
-                        chart_df = by_tech.set_index('Technician.Name')
-                        st.bar_chart(chart_df['Count'])
-                    else:
-                        st.info("No tickets in selected scope")
-                
-                with tab3:
-                    by_subcat = count_by_column(chart_tickets, 'Sub Category.Name').head(10)
-                    if len(by_subcat) > 0:
-                        chart_df = by_subcat.set_index('Sub Category.Name')
-                        st.bar_chart(chart_df['Count'])
-                    else:
-                        st.info("No tickets in selected scope")
-                
-                with tab4:
-                    by_status = count_by_column(chart_tickets, 'Status.Name').head(10)
-                    if len(by_status) > 0:
-                        chart_df = by_status.set_index('Status.Name')
-                        st.bar_chart(chart_df['Count'])
-                    else:
-                        st.info("No tickets in selected scope")
-                
-                # Trend line chart
-                st.subheader("Daily Trend: Opened vs Closed (Last 30 Days)")
-                
-                trend_data = get_daily_trend_data(df, days=30)
-                
-                if len(trend_data) > 0:
-                    chart_df = trend_data.set_index('Date')
-                    st.line_chart(chart_df)
-                else:
-                    st.info("No trend data available")
-            
+
             # ========== TICKETS BREAKDOWN WITH DRILL-DOWN ==========
             st.header("🔍 Tickets Breakdown")
             st.info(f"📋 Current scope: **{scope_option}** | System: **{system_type}**")
