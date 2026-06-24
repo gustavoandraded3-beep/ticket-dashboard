@@ -58,6 +58,29 @@ def validate_csv(df, system_type):
     return len(missing) == 0, missing
 
 
+def extract_priority_from_image_path(value):
+    """
+    Extract priority name from image path or return the value as-is.
+    Handles ConnectWise priority format: path/color.gif (count)
+    """
+    import re
+    
+    if pd.isna(value):
+        return 'Unassigned'
+    
+    value_str = str(value).strip()
+    
+    # Try to extract color name from image path
+    # Pattern: something/color.gif or color.gif
+    match = re.search(r'([a-zA-Z]+)\.gif', value_str)
+    if match:
+        color = match.group(1).capitalize()
+        return color
+    
+    # If no image path found, return original value
+    return value_str if value_str else 'Unassigned'
+
+
 def normalize_connectwise_to_manage_engine(df):
     """
     Convert ConnectWise dataframe to Manage Engine schema.
@@ -78,7 +101,8 @@ def normalize_connectwise_to_manage_engine(df):
     df_normalized['Completed Time'] = df['Closed On']
     df_normalized['Last Updated Time'] = df['Closed On']
     df_normalized['DevOpsRef'] = df['3rd Party Ref']
-    df_normalized['Priority.Name'] = df['Priority']
+    # Extract priority from image path format
+    df_normalized['Priority.Name'] = df['Priority'].apply(extract_priority_from_image_path)
     df_normalized['Category.Name'] = df['Type']
     df_normalized['IPC Feature'] = df['Item']
     df_normalized['Responded Time'] = df['Entered']
