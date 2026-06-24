@@ -421,9 +421,18 @@ def display_breakdown_with_drilldown(tickets_df, column_name, label):
             
             display_df['Created Date'] = display_df['Created Date Parsed'].apply(format_date_display)
             display_df['Completed Time'] = display_df['Completed Time Parsed'].apply(format_date_display)
+            
+            # Rename columns for display
+            display_df = display_df.rename(columns={
+                'Status.Name': 'Status',
+                'Group.Name': 'Type',
+                'Requester.Name': 'Requester',
+                'Technician.Name': 'Technician'
+            })
+            
             display_df = display_df[[
-                'Request ID', 'Subject', 'Status.Name', 'Group.Name', 
-                'Requester.Name', 'Technician.Name', 'Created Date', 'Completed Time'
+                'Request ID', 'Subject', 'Status', 'Type', 
+                'Requester', 'Technician', 'Created Date', 'Completed Time'
             ]]
             
             st.dataframe(display_df, use_container_width=True, hide_index=True)
@@ -460,9 +469,18 @@ def display_devops_breakdown(tickets_df):
             
             display_df['Created Date'] = display_df['Created Date Parsed'].apply(format_date_display)
             display_df['Completed Time'] = display_df['Completed Time Parsed'].apply(format_date_display)
+            
+            # Rename columns for display
+            display_df = display_df.rename(columns={
+                'Status.Name': 'Status',
+                'Group.Name': 'Type',
+                'Requester.Name': 'Requester',
+                'Technician.Name': 'Technician'
+            })
+            
             display_df = display_df[[
-                'DevOpsRef', 'Request ID', 'Subject', 'Status.Name', 'Group.Name', 
-                'Requester.Name', 'Technician.Name', 'Created Date', 'Completed Time'
+                'DevOpsRef', 'Request ID', 'Subject', 'Status', 'Type', 
+                'Requester', 'Technician', 'Created Date', 'Completed Time'
             ]]
             
             st.dataframe(display_df, use_container_width=True, hide_index=True)
@@ -518,8 +536,15 @@ def display_abandoned_tickets(tickets_df):
             ]].copy()
             display_df['Last Updated'] = display_df['Last Updated Time Parsed'].apply(format_date_display)
             display_df['Created Date'] = display_df['Created Date Parsed'].apply(format_date_display)
+            
+            # Rename columns for display
+            display_df = display_df.rename(columns={
+                'Status.Name': 'Status',
+                'Technician.Name': 'Technician'
+            })
+            
             display_df = display_df[[
-                'Request ID', 'Subject', 'Status.Name', 'Technician.Name', 
+                'Request ID', 'Subject', 'Status', 'Technician', 
                 'Days Since Update', 'Last Updated', 'Created Date'
             ]]
             
@@ -749,13 +774,14 @@ def main():
             
             st.write(f"**Total tickets in scope: {len(breakdown_tickets)}**")
             
-            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
                 "By Group",
                 "By Sub-Category",
                 "By IPC Feature",
                 "By Technician",
                 "By Requester",
                 "By Priority",
+                "By Status",
                 "Tickets on DevOps",
                 "Abandoned Tickets"
             ])
@@ -779,9 +805,12 @@ def main():
                 display_breakdown_with_drilldown(breakdown_tickets, 'Priority.Name', 'Priority')
             
             with tab7:
-                display_devops_breakdown(breakdown_tickets)
+                display_breakdown_with_drilldown(breakdown_tickets, 'Status.Name', 'Status')
             
             with tab8:
+                display_devops_breakdown(breakdown_tickets)
+            
+            with tab9:
                 display_abandoned_tickets(breakdown_tickets)
             
             # ========== EMAIL SUMMARY ==========
