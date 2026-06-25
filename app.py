@@ -569,7 +569,22 @@ def main():
         index=0
     )
     
+    # Display required columns based on system type
+    st.sidebar.markdown("---")
+    st.sidebar.subheader("📋 Required Columns")
+    
+    with st.sidebar.expander(f"Click to see {system_type} columns", expanded=True):
+        if system_type == "Manage Engine":
+            st.write("**Manage Engine columns required:**")
+            for i, col in enumerate(MANAGE_ENGINE_COLUMNS, 1):
+                st.write(f"{i}. `{col}`")
+        else:
+            st.write("**ConnectWise columns required:**")
+            for i, col in enumerate(CONNECTWISE_COLUMNS, 1):
+                st.write(f"{i}. `{col}`")
+    
     # File upload
+    st.sidebar.markdown("---")
     st.sidebar.header("1️⃣ Upload CSV File")
     uploaded_file = st.sidebar.file_uploader(
         "Choose a CSV file",
@@ -587,22 +602,26 @@ def main():
             is_valid, missing = validate_csv(df, system_type)
             
             if not is_valid:
-                st.error(f"❌ Missing required columns: {', '.join(missing)}")
-                if system_type == "Manage Engine":
-                    st.info("Required columns: " + ", ".join(MANAGE_ENGINE_COLUMNS))
-                else:
-                    st.info("Required columns: " + ", ".join(CONNECTWISE_COLUMNS))
+                st.error(f"❌ CSV Validation Failed!")
+                st.markdown("### Missing Columns")
+                st.write(f"Your file is missing **{len(missing)}** required column(s):")
+                for col in missing:
+                    st.write(f"- ❌ `{col}`")
+                
+                st.markdown("---")
+                st.info(f"**Please ensure your {system_type} export includes all required columns listed in the sidebar.**")
                 return
             
             # Convert ConnectWise to Manage Engine schema if needed
             if system_type == "ConnectWise":
                 df = normalize_connectwise_to_manage_engine(df)
-                st.info(f"✅ ConnectWise file converted to internal format")
+                st.info("🔄 ConnectWise data converted to internal processing format")
             
             # Prepare dataframe
             df = prepare_dataframe(df)
             
             st.success(f"✅ Successfully loaded {len(df)} tickets from {system_type}")
+            st.markdown(f"**System:** {system_type} | **Total Records:** {len(df)}")
             
             # Date selectors
             st.sidebar.header("3️⃣ Select Comparison Dates")
@@ -838,16 +857,6 @@ def main():
     
     else:
         st.info("👈 Please upload a CSV file to begin analysis")
-        
-        with st.expander("📋 Required CSV Columns"):
-            if system_type == "Manage Engine":
-                st.write("Your CSV must contain these columns:")
-                for col in MANAGE_ENGINE_COLUMNS:
-                    st.write(f"• {col}")
-            else:
-                st.write("Your CSV must contain these columns:")
-                for col in CONNECTWISE_COLUMNS:
-                    st.write(f"• {col}")
 
 
 if __name__ == "__main__":
