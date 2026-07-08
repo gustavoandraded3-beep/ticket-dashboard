@@ -603,7 +603,7 @@ def display_age_tickets(tickets_df):
     st.markdown("---")
     
     age_ranges = [
-        ("0 to 7 days (Fresh)", age_0_7, "0-7"),
+        ("0 to 7 days", age_0_7, "0-7"),
         ("7 to 15 days", age_7_15, "7-15"),
         ("15 to 30 days", age_15_30, "15-30"),
         ("30+ days (Aging)", age_30_plus, "30+")
