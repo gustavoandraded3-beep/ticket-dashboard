@@ -114,8 +114,9 @@ def parse_date_column(series):
     """
     Parse a date column, handling various formats and returning date only (no time).
     Returns a Series of datetime.date objects or NaT.
+    Uses dayfirst=True for dd/mm/yyyy format (ConnectWise standard).
     """
-    parsed = pd.to_datetime(series, errors='coerce', dayfirst=False)
+    parsed = pd.to_datetime(series, errors='coerce', dayfirst=True)
     return parsed.dt.date
 
 
@@ -499,7 +500,7 @@ def display_abandoned_tickets(tickets_df):
     
     # Calculate days since update using apply to handle date objects
     abandoned_data['Days Since Update'] = abandoned_data['Last Update Date'].apply(
-        lambda x: (now - x).days if pd.notna(x) else None
+        lambda x: abs((x - now).days) if pd.notna(x) else None
     )
     
     more_than_7 = abandoned_data[abandoned_data['Days Since Update'] > 7]
@@ -565,7 +566,7 @@ def display_age_tickets(tickets_df):
     # Calculate age of each ticket (days since creation)
     # Use apply to handle date objects properly
     age_data['Age Days'] = age_data['Created Date Parsed'].apply(
-        lambda x: (now - x).days if pd.notna(x) else None
+        lambda x: abs((x - now).days) if pd.notna(x) else None
     )
     
     # Filter only tickets with valid creation dates
