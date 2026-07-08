@@ -885,7 +885,7 @@ def main():
             
             st.write(f"**Total tickets in scope: {len(breakdown_tickets)}**")
             
-            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
                 "By Group",
                 "By Sub-Category",
                 "By IPC Feature",
@@ -894,8 +894,7 @@ def main():
                 "By Priority",
                 "By Status",
                 "By Age",
-                "Tickets on DevOps",
-                "Abandoned Tickets"
+                "Tickets on DevOps"
             ])
             
             with tab1:
@@ -924,9 +923,6 @@ def main():
             
             with tab9:
                 display_devops_breakdown(breakdown_tickets)
-            
-            with tab10:
-                display_abandoned_tickets(breakdown_tickets)
             
             # ========== EMAIL SUMMARY ==========
             st.header("📧 Email-Ready Summary")
