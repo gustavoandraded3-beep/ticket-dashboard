@@ -32,7 +32,6 @@ CONNECTWISE_COLUMNS = [
     'Status',
     'Entered',
     'Priority',
-    'Entered By',
     'Type',
     'Subtype',
     'Item',
@@ -59,6 +58,10 @@ def validate_csv(df, system_type):
 
 
 def extract_priority_from_image_path(value):
+    """
+    Extract priority name from image path or return the value as-is.
+    Handles ConnectWise priority format: path/color.gif (count)
+    """
     import re
     
     if pd.isna(value):
@@ -66,22 +69,14 @@ def extract_priority_from_image_path(value):
     
     value_str = str(value).strip()
     
-    priority_map = {
-        'red': 'Priority 1',
-        'orange': 'Priority 2',
-        'yellow': 'Priority 3',
-        'white': 'Priority 4',
-        'purple': 'Service Request 1',
-        'pink': 'Service Request 2',
-        'cyan': 'Service Request 3',
-        'green': 'Service Request 4'
-    }
-    
+    # Try to extract color name from image path
+    # Pattern: something/color.gif or color.gif
     match = re.search(r'([a-zA-Z]+)\.gif', value_str)
     if match:
-        color = match.group(1).lower()
-        return priority_map.get(color, color.capitalize())
+        color = match.group(1).capitalize()
+        return color
     
+    # If no image path found, return original value
     return value_str if value_str else 'Unassigned'
 
 
@@ -103,7 +98,8 @@ def normalize_connectwise_to_manage_engine(df):
     df_normalized['Requester.Name'] = df['Contact']
     df_normalized['Created Date'] = df['Entered']
     df_normalized['Completed Time'] = df['Closed On']
-    df_normalized['Last Updated Time'] = df['Closed On']
+    # Para tickets abertos, usar Created Date como fallback para Last Updated Time
+    df_normalized['Last Updated Time'] = df['Closed On'].fillna(df['Entered'])
     df_normalized['DevOpsRef'] = df['3rd Party Ref']
     # Extract priority from image path format
     df_normalized['Priority.Name'] = df['Priority'].apply(extract_priority_from_image_path)
@@ -495,11 +491,13 @@ def display_abandoned_tickets(tickets_df):
     now = datetime.now().date()
     
     abandoned_data = tickets_df.copy()
-    abandoned_data['Days Since Update'] = abandoned_data['Last Updated Time Parsed'].apply(
-        lambda x: (now - x).days if pd.notna(x) else None
+    
+    # Use Last Updated Time, fallback to Created Date for tickets without updates
+    abandoned_data['Last Update Date'] = abandoned_data['Last Updated Time Parsed'].fillna(
+        abandoned_data['Created Date Parsed']
     )
     
-    abandoned_data = abandoned_data[abandoned_data['Days Since Update'].notna()]
+    abandoned_data['Days Since Update'] = (now - abandoned_data['Last Update Date']).dt.days
     
     more_than_7 = abandoned_data[abandoned_data['Days Since Update'] > 7]
     more_than_15 = abandoned_data[abandoned_data['Days Since Update'] > 15]
@@ -536,9 +534,9 @@ def display_abandoned_tickets(tickets_df):
         with st.expander(f"➕ View all {len(category_tickets_sorted)} tickets", expanded=False):
             display_df = category_tickets_sorted[[
                 'Request ID', 'Subject', 'Status.Name', 'Technician.Name', 
-                'Days Since Update', 'Last Updated Time Parsed', 'Created Date Parsed'
+                'Days Since Update', 'Last Update Date', 'Created Date Parsed'
             ]].copy()
-            display_df['Last Updated'] = display_df['Last Updated Time Parsed'].apply(format_date_display)
+            display_df['Last Updated'] = display_df['Last Update Date'].apply(format_date_display)
             display_df['Created Date'] = display_df['Created Date Parsed'].apply(format_date_display)
             
             # Rename columns for display
@@ -550,6 +548,78 @@ def display_abandoned_tickets(tickets_df):
             display_df = display_df[[
                 'Request ID', 'Subject', 'Status', 'Technician', 
                 'Days Since Update', 'Last Updated', 'Created Date'
+            ]]
+            
+            st.dataframe(display_df, use_container_width=True, hide_index=True)
+
+
+def display_age_tickets(tickets_df):
+    """Display tickets grouped by age (days since creation)."""
+    now = datetime.now().date()
+    
+    age_data = tickets_df.copy()
+    
+    # Calculate age of each ticket (days since creation)
+    age_data['Age Days'] = (now - age_data['Created Date Parsed']).dt.days
+    
+    # Filter only tickets with valid creation dates
+    age_data = age_data[age_data['Age Days'].notna()]
+    
+    # Create age ranges
+    age_0_7 = age_data[age_data['Age Days'] <= 7]
+    age_7_15 = age_data[(age_data['Age Days'] > 7) & (age_data['Age Days'] <= 15)]
+    age_15_30 = age_data[(age_data['Age Days'] > 15) & (age_data['Age Days'] <= 30)]
+    age_30_plus = age_data[age_data['Age Days'] > 30]
+    
+    col1, col2, col3, col4 = st.columns(4)
+    
+    with col1:
+        st.metric("0-7 days", len(age_0_7))
+    with col2:
+        st.metric("7-15 days", len(age_7_15))
+    with col3:
+        st.metric("15-30 days", len(age_15_30))
+    with col4:
+        st.metric("30+ days", len(age_30_plus))
+    
+    st.markdown("---")
+    
+    age_ranges = [
+        ("0 to 7 days (Fresh)", age_0_7, "0-7"),
+        ("7 to 15 days", age_7_15, "7-15"),
+        ("15 to 30 days", age_15_30, "15-30"),
+        ("30+ days (Aging)", age_30_plus, "30+")
+    ]
+    
+    for range_name, range_tickets, range_label in age_ranges:
+        st.subheader(f"📅 {range_name}")
+        
+        if len(range_tickets) == 0:
+            st.info(f"No tickets in this age range")
+            continue
+        
+        st.write(f"**Total tickets: {len(range_tickets)}**")
+        
+        range_tickets_sorted = range_tickets.sort_values('Age Days', ascending=False)
+        
+        with st.expander(f"➕ View all {len(range_tickets_sorted)} tickets", expanded=False):
+            display_df = range_tickets_sorted[[
+                'Request ID', 'Subject', 'Status.Name', 'Group.Name',
+                'Technician.Name', 'Priority.Name', 'Age Days', 'Created Date Parsed'
+            ]].copy()
+            display_df['Created Date'] = display_df['Created Date Parsed'].apply(format_date_display)
+            
+            # Rename columns for display
+            display_df = display_df.rename(columns={
+                'Status.Name': 'Status',
+                'Group.Name': 'Type',
+                'Technician.Name': 'Technician',
+                'Priority.Name': 'Priority'
+            })
+            
+            display_df = display_df[[
+                'Request ID', 'Subject', 'Status', 'Type',
+                'Technician', 'Priority', 'Age Days', 'Created Date'
             ]]
             
             st.dataframe(display_df, use_container_width=True, hide_index=True)
@@ -797,7 +867,7 @@ def main():
             
             st.write(f"**Total tickets in scope: {len(breakdown_tickets)}**")
             
-            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9 = st.tabs([
+            tab1, tab2, tab3, tab4, tab5, tab6, tab7, tab8, tab9, tab10 = st.tabs([
                 "By Group",
                 "By Sub-Category",
                 "By IPC Feature",
@@ -805,6 +875,7 @@ def main():
                 "By Requester",
                 "By Priority",
                 "By Status",
+                "By Age",
                 "Tickets on DevOps",
                 "Abandoned Tickets"
             ])
@@ -831,9 +902,12 @@ def main():
                 display_breakdown_with_drilldown(breakdown_tickets, 'Status.Name', 'Status')
             
             with tab8:
-                display_devops_breakdown(breakdown_tickets)
+                display_age_tickets(breakdown_tickets)
             
             with tab9:
+                display_devops_breakdown(breakdown_tickets)
+            
+            with tab10:
                 display_abandoned_tickets(breakdown_tickets)
             
             # ========== EMAIL SUMMARY ==========
