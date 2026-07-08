@@ -64,6 +64,18 @@ def extract_priority_from_image_path(value):
     """
     import re
     
+    # Priority mapping - Color to Priority Name
+    priority_map = {
+        'red': 'Priority 1',
+        'orange': 'Priority 2',
+        'yellow': 'Priority 3',
+        'white': 'Priority 4',
+        'purple': 'Service Request 1',
+        'pink': 'Service Request 2',
+        'cyan': 'Service Request 3',
+        'green': 'Service Request 4'
+    }
+    
     if pd.isna(value):
         return 'Unassigned'
     
@@ -74,7 +86,7 @@ def extract_priority_from_image_path(value):
     match = re.search(r'([a-zA-Z]+)\.gif', value_str)
     if match:
         color = match.group(1).lower()
-        return PRIORITY_MAP.get(color, color.capitalize())
+        return priority_map.get(color, color.capitalize())
     
     return value_str if value_str else 'Unassigned'
 
