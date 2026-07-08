@@ -59,8 +59,8 @@ def validate_csv(df, system_type):
 
 def extract_priority_from_image_path(value):
     """
-    Extract priority name from image path or return the value as-is.
-    Handles ConnectWise priority format: path/color.gif (count)
+    Convert ConnectWise priority colour image path into priority name.
+    Maps color names to Priority 1-4 or Service Request 1-4 levels.
     """
     import re
     
@@ -70,13 +70,12 @@ def extract_priority_from_image_path(value):
     value_str = str(value).strip()
     
     # Try to extract color name from image path
-    # Pattern: something/color.gif or color.gif
+    # Pattern: something/color.gif or just color name
     match = re.search(r'([a-zA-Z]+)\.gif', value_str)
     if match:
-        color = match.group(1).capitalize()
-        return color
+        color = match.group(1).lower()
+        return PRIORITY_MAP.get(color, color.capitalize())
     
-    # If no image path found, return original value
     return value_str if value_str else 'Unassigned'
 
 
