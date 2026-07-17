@@ -102,7 +102,7 @@ CONNECTWISE_COLUMNS = [
 ]
 
 # MANDATORY: Normalized closed statuses (lowercase)
-CLOSED_STATUSES = {'closed', 'resolved', 'completed'}
+CLOSED_STATUSES = {'closed', 'resolved', 'completed', 'cancelled', 'canceled'}
 
 
 def validate_csv(df, system_type):
