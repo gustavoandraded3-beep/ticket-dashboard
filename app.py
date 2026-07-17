@@ -58,12 +58,12 @@ def get_week_comparison_metrics(df, prev_mon, prev_fri, curr_mon, curr_fri):
     closed_var = curr_closed - prev_closed
     
     return {
-        'prev_opened': prev_opened,
-        'prev_closed': prev_closed,
-        'curr_opened': curr_opened,
-        'curr_closed': curr_closed,
-        'opened_var': opened_var,
-        'closed_var': closed_var
+        'previous_opened': prev_opened,
+        'previous_closed': prev_closed,
+        'current_opened': curr_opened,
+        'current_closed': curr_closed,
+        'opened_difference': opened_var,
+        'closed_difference': closed_var
     }
 # Configuration for Manage Engine
 MANAGE_ENGINE_COLUMNS = [
