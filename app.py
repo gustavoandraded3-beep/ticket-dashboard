@@ -1,3 +1,9 @@
+import streamlit as st
+import pandas as pd
+from datetime import datetime, timedelta
+from io import StringIO
+
+
 def get_week_bounds():
     """
     Calculate Monday-Friday bounds for current week and previous week.
@@ -58,11 +64,7 @@ def get_week_comparison_metrics(df, prev_mon, prev_fri, curr_mon, curr_fri):
         'curr_closed': curr_closed,
         'opened_var': opened_var,
         'closed_var': closed_var
-    }import streamlit as st
-import pandas as pd
-from datetime import datetime, timedelta
-from io import StringIO
-
+    }
 # Configuration for Manage Engine
 MANAGE_ENGINE_COLUMNS = [
     'Request ID',
@@ -860,26 +862,58 @@ def main():
             with col4:
                 st.metric(f"Closed in {year_metrics['year']}", year_metrics['closed_total'])
             
-            # ========== DATE COMPARISON ==========
-            st.header("📅 Date Comparison")
+            # ========== WEEKLY COMPARISON ==========
+            st.header("📅 Weekly Comparison")
             
-            st.subheader("Specific Dates")
+            previous_monday, previous_friday, current_monday, current_friday = (
+                get_week_bounds()
+            )
+            
+            week_metrics = get_week_comparison_metrics(
+                df,
+                previous_monday,
+                previous_friday,
+                current_monday,
+                current_friday
+            )
+            
             col1, col2 = st.columns(2)
             
             with col1:
-                st.write(f"**Date A: {format_date_display(date_a)}**")
-                opened_a = len(get_tickets_opened_on_date(df, date_a))
-                closed_a = len(get_tickets_closed_on_date(df, date_a))
-                st.write(f"Opened: {opened_a} tickets")
-                st.write(f"Closed/Resolved: {closed_a} tickets")
+                st.subheader("Previous Week")
+                st.caption(
+                    f"{format_date_display(previous_monday)} "
+                    f"to {format_date_display(previous_friday)}"
+                )
+            
+                st.metric(
+                    "Tickets Opened",
+                    week_metrics['previous_opened']
+                )
+            
+                st.metric(
+                    "Tickets Closed/Resolved",
+                    week_metrics['previous_closed']
+                )
             
             with col2:
-                st.write(f"**Date B: {format_date_display(date_b)}**")
-                opened_b = len(get_tickets_opened_on_date(df, date_b))
-                closed_b = len(get_tickets_closed_on_date(df, date_b))
-                st.write(f"Opened: {opened_b} tickets")
-                st.write(f"Closed/Resolved: {closed_b} tickets")
+                st.subheader("Current Week")
+                st.caption(
+                    f"{format_date_display(current_monday)} "
+                    f"to {format_date_display(current_friday)}"
+                )
             
+                st.metric(
+                    "Tickets Opened",
+                    week_metrics['current_opened'],
+                    delta=week_metrics['opened_difference']
+                )
+            
+                st.metric(
+                    "Tickets Closed/Resolved",
+                    week_metrics['current_closed'],
+                    delta=week_metrics['closed_difference']
+                )
             # Period metrics
             st.subheader(f"Period Metrics: {format_date_display(date_a)} to {format_date_display(date_b)} (Inclusive)")
             
