@@ -181,7 +181,7 @@ def prepare_dataframe(df):
     df['Completed Time Parsed'] = parse_date_column(df['Completed Time'])
     df['Last Updated Time Parsed'] = parse_date_column(df['Last Updated Time'])
     
-  df['Is Closed'] = (
+    df['Is Closed'] = (
     (df['Status Clean'].isin(CLOSED_STATUSES)) |          # Status no conjunto de fechados
     (df['Status Clean'].str.contains('cancel', na=False)) | # Qualquer status contendo "cancel"
     (df['ClosedDT'].notna())                               # Tem data de fechamento
