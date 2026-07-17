@@ -1,4 +1,64 @@
-import streamlit as st
+def get_week_bounds():
+    """
+    Calculate Monday-Friday bounds for current week and previous week.
+    Used for automatic weekly comparison reports (always run on Friday).
+    Returns: (prev_mon, prev_fri, curr_mon, curr_fri)
+    """
+    today = datetime.now().date()
+    
+    # Get current week's Monday and Friday
+    # weekday() returns: 0=Monday, 1=Tuesday, ..., 4=Friday, 5=Saturday, 6=Sunday
+    days_since_monday = today.weekday()
+    current_monday = today - timedelta(days=days_since_monday)
+    current_friday = current_monday + timedelta(days=4)
+    
+    # Get previous week's Monday and Friday
+    previous_monday = current_monday - timedelta(days=7)
+    previous_friday = current_friday - timedelta(days=7)
+    
+    return previous_monday, previous_friday, current_monday, current_friday
+
+
+def get_week_comparison_metrics(df, prev_mon, prev_fri, curr_mon, curr_fri):
+    """
+    Calculate metrics for previous week and current week comparison.
+    """
+    # Previous week metrics
+    prev_opened = len(df[
+        (df['Created Date Parsed'] >= prev_mon) & 
+        (df['Created Date Parsed'] <= prev_fri)
+    ])
+    
+    prev_closed = len(df[
+        (df['Is Closed']) & 
+        (df['ClosedDT'] >= prev_mon) & 
+        (df['ClosedDT'] <= prev_fri)
+    ])
+    
+    # Current week metrics
+    curr_opened = len(df[
+        (df['Created Date Parsed'] >= curr_mon) & 
+        (df['Created Date Parsed'] <= curr_fri)
+    ])
+    
+    curr_closed = len(df[
+        (df['Is Closed']) & 
+        (df['ClosedDT'] >= curr_mon) & 
+        (df['ClosedDT'] <= curr_fri)
+    ])
+    
+    # Calculate variations
+    opened_var = curr_opened - prev_opened
+    closed_var = curr_closed - prev_closed
+    
+    return {
+        'prev_opened': prev_opened,
+        'prev_closed': prev_closed,
+        'curr_opened': curr_opened,
+        'curr_closed': curr_closed,
+        'opened_var': opened_var,
+        'closed_var': closed_var
+    }import streamlit as st
 import pandas as pd
 from datetime import datetime, timedelta
 from io import StringIO
