@@ -181,11 +181,8 @@ def prepare_dataframe(df):
     df['Completed Time Parsed'] = parse_date_column(df['Completed Time'])
     df['Last Updated Time Parsed'] = parse_date_column(df['Last Updated Time'])
     
-    df['Is Closed'] = (
-    (df['Status Clean'].isin(CLOSED_STATUSES)) |          # Status no conjunto de fechados
-    (df['Status Clean'].str.contains('cancel', na=False)) | # Qualquer status contendo "cancel"
-    (df['ClosedDT'].notna())                               # Tem data de fechamento
-    )
+    # Determine if ticket is closed
+    df['Is Closed'] = df['Status Clean'].isin(CLOSED_STATUSES)
     
     # Calculate effective closed date (ClosedDT logic)
     df['ClosedDT'] = df.apply(
@@ -606,7 +603,7 @@ def display_age_tickets(tickets_df):
     st.markdown("---")
     
     age_ranges = [
-        ("0 to 7 days", age_0_7, "0-7"),
+        ("0 to 7 days (Fresh)", age_0_7, "0-7"),
         ("7 to 15 days", age_7_15, "7-15"),
         ("15 to 30 days", age_15_30, "15-30"),
         ("30+ days (Aging)", age_30_plus, "30+")
