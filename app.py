@@ -373,49 +373,56 @@ def get_daily_trend_data(df, days=30):
 def generate_email_summary(df, date_a, date_b):
     """Generate an email-ready summary of ticket metrics."""
     now = datetime.now()
-    
+
     open_tickets = get_open_tickets(df)
     total_open = len(open_tickets)
-    
-    opened_a = len(get_tickets_opened_on_date(df, date_a))
-    closed_a = len(get_tickets_closed_on_date(df, date_a))
-    opened_b = len(get_tickets_opened_on_date(df, date_b))
-    closed_b = len(get_tickets_closed_on_date(df, date_b))
-    
+
+    # Weekly comparison
+    previous_monday, previous_friday, current_monday, current_friday = get_week_bounds()
+
+    week_metrics = get_week_comparison_metrics(
+        df,
+        previous_monday,
+        previous_friday,
+        current_monday,
+        current_friday
+    )
+
     last_24h_opened = len(get_tickets_opened_since(df, now - timedelta(hours=24)))
     last_24h_closed = len(get_tickets_closed_since(df, now - timedelta(hours=24)))
-    
+
     last_7d_opened = len(get_tickets_opened_since(df, now - timedelta(days=7)))
     last_7d_closed = len(get_tickets_closed_since(df, now - timedelta(days=7)))
-    
+
     last_30d_opened = len(get_tickets_opened_since(df, now - timedelta(days=30)))
     last_30d_closed = len(get_tickets_closed_since(df, now - timedelta(days=30)))
-    
+
     by_group = count_by_column(open_tickets, 'Group.Name')
     by_subcategory = count_by_column(open_tickets, 'Sub Category.Name')
     by_ipc = count_by_column(open_tickets, 'IPC Feature List')
     by_technician = count_by_column(open_tickets, 'Technician.Name')
-    
-    date_a_str = format_date_display(date_a)
-    date_b_str = format_date_display(date_b)
+
     now_str = now.strftime('%d/%m/%Y at %I:%M %p')
-    
+
     summary = f"""TICKET SYSTEM SUMMARY
 Generated on: {now_str}
 
 OVERVIEW
 • Total Open Tickets: {total_open}
 
-DATE COMPARISON
+WEEKLY COMPARISON
 
-Specific Dates:
-Date A ({date_a_str}):
-• Tickets Opened: {opened_a}
-• Tickets Closed/Resolved: {closed_a}
+Previous Week ({format_date_display(previous_monday)} to {format_date_display(previous_friday)}):
+• Tickets Opened: {week_metrics['previous_opened']}
+• Tickets Closed/Resolved: {week_metrics['previous_closed']}
 
-Date B ({date_b_str}):
-• Tickets Opened: {opened_b}
-• Tickets Closed/Resolved: {closed_b}
+Current Week ({format_date_display(current_monday)} to {format_date_display(current_friday)}):
+• Tickets Opened: {week_metrics['current_opened']}
+• Tickets Closed/Resolved: {week_metrics['current_closed']}
+
+Variation vs Previous Week:
+• Opened Difference: {week_metrics['opened_difference']:+d}
+• Closed/Resolved Difference: {week_metrics['closed_difference']:+d}
 
 Rolling Periods:
 Last 24 Hours:
@@ -434,13 +441,13 @@ OPEN TICKETS BREAKDOWN
 
 By Group:
 """
-    
+
     if len(by_group) > 0:
         for _, row in by_group.iterrows():
             summary += f"• {row['Group.Name']}: {row['Count']} tickets\n"
     else:
         summary += "• No open tickets\n"
-    
+
     summary += "\nBy Sub-Category:\n"
     if len(by_subcategory) > 0:
         for _, row in by_subcategory.head(10).iterrows():
@@ -449,7 +456,7 @@ By Group:
             summary += f"• ... and {len(by_subcategory) - 10} more categories\n"
     else:
         summary += "• No open tickets\n"
-    
+
     summary += "\nBy IPC Feature:\n"
     if len(by_ipc) > 0:
         for _, row in by_ipc.head(10).iterrows():
@@ -458,16 +465,16 @@ By Group:
             summary += f"• ... and {len(by_ipc) - 10} more features\n"
     else:
         summary += "• No open tickets\n"
-    
+
     summary += "\nBy Technician:\n"
     if len(by_technician) > 0:
         for _, row in by_technician.iterrows():
             summary += f"• {row['Technician.Name']}: {row['Count']} tickets\n"
     else:
         summary += "• No open tickets\n"
-    
+
     summary += "\n---\nThis summary was generated automatically from the ticket system export.\n"
-    
+
     return summary
 
 
